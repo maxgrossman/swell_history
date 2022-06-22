@@ -1,0 +1,25 @@
+{
+  "name": "swell_history",
+  "version": "0.0.1",
+  "description": "show similar bouy readings across time",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mapbox/tilebelt": "^1.0.2",
+    "bit-interleave": "^1.0.0",
+    "geo-tz": "^7.0.1",
+    "luxon": "^2.3.2",
+    "node-html-parser": "^5.3.3",
+    "stream-chain": "^2.2.5",
+    "stream-json": "github:uhop/stream-json",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.3"
+  }
+}

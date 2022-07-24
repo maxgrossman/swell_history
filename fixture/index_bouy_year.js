@@ -74,7 +74,7 @@ gn
         if (readingData) {
           readLine(line)
         } else if (!readingData && line.startsWith(year)) {
-          readingData = true;
+g         readingData = true;
           readLine(line)
         }
       })

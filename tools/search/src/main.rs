@@ -1,22 +1,20 @@
-use std::fs;
-use std::num::ParseFloatError;
+mod zdiv;
 use std::env;
-use std::collections::{HashMap,HashSet};
 use std::path::Path;
-use serde_json::Value;
-use morton_encoding::morton_decode;
+// use serde_json::Value;
+// use morton_encoding::morton_encode_generic_checked;
 
 fn main() {
-  let PATH: String = String::from("/Users/maxgrossman/Documents/github/maxgrossman/swell_history/bouys");
+  let path: String = String::from("/Users/maxgrossman/Documents/github/maxgrossman/swell_history/bouys");
   let args: Vec<String> = env::args().collect();
-  let mut swell_signatures: Vec<String> = vec![
+  let swell_signatures: Vec<String> = vec![
+    String::from("--d"),
     String::from("--h"),
-    String::from("--p"),
-    String::from("--d")
+    String::from("--p")
   ];
 
   // start, can i de interleave and check against h/p/d?
-  let mut hpd: Vec<u32> = vec![0,0,0,0,0,0];
+  let mut dhp: [Vec<u32>;2] = [Vec::new(), Vec::new()];
   let mut have_sigs = 0;
 
   for i in 1..args.len() - 1 {
@@ -24,16 +22,8 @@ fn main() {
     match signature_flag {
       Some(shift_pos) => {
         let query: Vec<u32> = args[i+1].split(",").map(|n| n.parse::<u32>().unwrap()).collect::<Vec<u32>>();
-        hpd[2*shift_pos]     = query[0];
-        hpd[2*shift_pos + 1] = match query.len() {
-            1 => (query[0] + 1),
-            _ => query[1]
-        };
-
-        if shift_pos < 2 {
-            hpd[2*shift_pos] *= 100;
-            hpd[2*shift_pos + 1] *= 100;
-        }
+        dhp[0].push(query[0] * 100);
+        dhp[1].push(query[1] * 100);
         // where h is encoded by 1, p 2, and d 4, encode their encodings in have_sigs when matched
         have_sigs += 1 << shift_pos;
       },
@@ -41,67 +31,80 @@ fn main() {
     }
   }
 
-  // let mut decoded_map: HashMap<u64,[u32;3]> = HashMap::new();
-
   match args.last() {
     Some(bouy_id) => {
-      let _bouy_str_path = format!("{}/{}/{}", PATH, bouy_id, "index");
-      let bouy_indexes_path = Path::new(&_bouy_str_path);
-      if bouy_indexes_path.exists() {
-        for entry in bouy_indexes_path.read_dir().expect("") {
-          match entry {
-            Ok(z_index) => {
-              match z_index.file_name().into_string() {
-               Ok(z_index_str) => {
-                  let z_index_uint: u64 = z_index_str.parse::<u64>().unwrap();
+        let bouy_db_str = format!("{}/{}.sqlite", path, bouy_id);
+        let bouy_db_path = Path::new(&bouy_db_str);
+        if bouy_db_path.exists() {
+            // create by bbox, knowing what index i am going to look through
+            let mut col_name: String = String::new();
 
-                  // if !decoded_map.contains_key(&z_index_uint) {
-                    // decoded_map.insert(z_index_uint, morton_decode(u128::from(z_index_uint)));
-                  // }
-                  let decoded: [u32;3] =  morton_decode(u128::from(z_index_uint));
-                  // let decoded: &[u32; 3] = decoded_map.get(&z_index_uint).unwrap();
+            if have_sigs & 1 == 1 { col_name.push_str("d"); }
+            if have_sigs & 2 == 2 { col_name.push_str("h"); }
+            if have_sigs & 4 == 4 { col_name.push_str("p"); }
 
-                  let mut matches = have_sigs > 0;
-                  if have_sigs & 1 == 1 { matches = matches && hpd[0] <= decoded[2] && decoded[2] < hpd[1]; }
-                  if have_sigs & 2 == 2 { matches = matches && hpd[2] <= decoded[1] && decoded[1] < hpd[3]; }
-                  if have_sigs & 4 == 4 { matches = matches && hpd[4] <= decoded[0] && decoded[0] < hpd[5]; }
 
-                  if matches == true {
-                    let timestamps = fs::read_to_string(z_index.path());
-                    match timestamps {
-                        Ok(timestamps_str) => {
-                            for timestamp in timestamps_str.lines() {
-                                let reading_json = fs::read_to_string(format!("{}/{}/{}/{}", PATH, bouy_id, "readings", timestamp));
-                                match reading_json {
-                                    Ok(reading_string) => {
-                                        let reading: HashMap<String,Value> = serde_json::from_str(&reading_string).unwrap();
-                                        println!(
-                                            "{} => height={} period={} direction={}",
-                                            timestamp,
-                                            reading.get("wvht").unwrap(),
-                                            reading.get("apd").unwrap(),
-                                            reading.get("mwd").unwrap(),
-                                        );
-                                    },
-                                    Err(_) => {}
-                                }
-                            }
-                        },
-                        Err(_) => {}
-                    }
-                  }
-                }
-                Err(_) => {}
-              }
-            },
-            Err(_) => {}
-          }
+            let mut statement: String = String::new();
+
+            if col_name.len() == 1 {
+                statement.push_str(&format!(
+                   "SELECT reading_time FROM timestamps
+                    WHERE {min} <= {col_name} AND {col_name} <= {max};",
+                    col_name=col_name,
+                    min=dhp[0][0],
+                    max=dhp[1][1]
+                ))
+            } else {
+                // let bound_min: Option<u64> = morton_encode_generic_checked::<_,u64,_>(dhp[0].clone());
+                // let bound_max: Option<u64> = morton_encode_generic_checked::<_,u64,_>(dhp[1].clone());
+            }
         }
-      }
-    }
+    },
     None => {}
   }
 }
+                //let range_nums: Vec<u64> = Vec::new();
+                //let first = bounds_inputs[0];
+                //let num_dimensions = dhp[0].len();
+                //let missed_count = 0;
+                //let max_missed = 3;
+                //for x in bounds_slices[0]..bounds_slices[1] {
+                //    let decoded: Vec<u16> = morton_decode_generic(x, num_dimensions);
+                //    let inside = 0;
+                //    for (pos, x) in decoded.iter().enumerate() {
+                //        if (x < dhp[0][pos] || x > dhp[1][pos]) {
+                //            missed_count++;
+                //            break;
+                //        } else {
+                //            ++inside;
+                //        }
+                //    }
+                //    if (inside == decoded.len() {
+                //        range_nums.append(x);
+                //    } else if missed_count == max_missed {
+                //        missed_count = 0
+                //        // find the most significant bit, the largest one, that is different.
+                //        let diff_input = bounds_slice[0] ^ bounds_slices[1];
+                //        let diff_source_pos = (log2(diff_input & -diff_input) + 1);
+
+                //        // then right shift that bit until it is in the bounds of the first set of interleaven bits
+                //        // this tells us which dimension by its index.
+                //        let slice_dimension = diff_source >> (num_dimensions * (diff_source_pos / num_dimension))
+                //        let litmax: [u64;3] = [0,0,0];
+                //        let bigmin: [u64;3] = [0,0,0];
+
+                //        litmax[slice_dimension] = bounds_inputs[1][slice_dimension];
+                //        bigmin[slice_dimension] = bonnds_inputs[0][slice_dimension];
+
+
+
+                //        //BIG_MIN, find me next smallest value back in my box
+                //        //LIT_MAX, find me next largest  value back in my box
+                //    }
+
+
+                    // how am i seeing if it is inside the encoded box? do i de-interleave and
+                    // check?
 
 // flags --direction, --height, --period
 // arguments cld bouys

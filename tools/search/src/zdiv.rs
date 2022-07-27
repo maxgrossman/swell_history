@@ -20,12 +20,15 @@ impl ZDivRange {
     }
     fn split(&self, to_split: u64) -> u64 {
         let mut split_num = to_split & MAX_BITS_MASK;
-        split_num = (split_num | split_num << 32) & 0x1f00000000ffffu64;
-        split_num = (split_num | split_num << 16) & 0x1f0000ff0000ffu64;
-        split_num = (split_num | split_num << 8)  & 0x100f00f00f00f00fu64;
-        split_num = (split_num | split_num << 4)  & 0x10c30c30c30c30c3u64;
 
-        return (split_num | split_num << 2) & 0x1249249249249249u64;
+        split_num = (split_num ^ (split_num << 32)) & 0x00000000ffffffff;
+        split_num = (split_num ^ (split_num << 16)) & 0x0000ffff0000ffff;
+        split_num = (split_num ^ (split_num <<  8)) & 0x00ff00ff00ff00ff;
+        split_num = (split_num ^ (split_num <<  4)) & 0x0f0f0f0f0f0f0f0f;
+        split_num = (split_num ^ (split_num <<  2)) & 0x3333333333333333;
+        split_num = (split_num ^ (split_num <<  1)) & 0x5555555555555555;
+
+        return split_num;
     }
     fn bit_on_at_idx(&self, x: u64, idx: u64) -> u64 {
         // x & 1 left shifted to the idx bit, right shifted back over to 1st bit
@@ -54,7 +57,7 @@ impl ZDivRange {
         while i > 0 {
             i -= 1;
 
-            let bits: u64 = 1 / self.dims + 1;
+            let bits: u64 = i / self.dims + 1;
             let dim = i % self.dims;
             let bits_on: (u64,u64,u64) = (
               self.bit_on_at_idx(self.morton_encoding, i),
@@ -137,14 +140,63 @@ impl Iterator for ZDivRangeIntoIterator {
     }
 }
 
+/**
+ * Given minimum and maximum mortons codes inclusive of codes not in
+ * a bounding box, replies set of ranges exclusive to only those in bounds.
+ */
+fn get_bbox_ranges(min: u64, max: u64, dimensions: u64) -> Vec<Vec<u64>> {
+    let mut zdiv_range_iter: ZDivRangeIntoIterator =
+        crate::zdiv::ZDivRange::new(min, max, dimensions).into_iter();
+
+    let mut zdiv_ranges: Vec<Vec<u64>> = Vec::new();
+    let mut range_index: usize = 0;
+    let mut last: u64 = 0;
+
+    match zdiv_range_iter.next() {
+        Some(morton) => {
+            last = morton;
+            zdiv_ranges.push(vec![morton]);
+        },
+        None => {}
+    }
+
+    for morton in zdiv_range_iter.next() {
+        if (last + 1) != morton {
+            if zdiv_ranges[range_index][0] != last {
+                zdiv_ranges[range_index].push(last);
+            }
+            range_index += 1;
+        }
+        last = morton;
+    }
+
+    if zdiv_ranges[range_index][0] != last {
+        zdiv_ranges[range_index].push(last);
+    }
+
+    return zdiv_ranges;
+}
+
+
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn wikipedia_example() {
-        let mut wiki_zrange =   crate::zdiv::ZDivRange::new(12u64, 45u64, 2);
+        let mut wiki_zrange =  crate::zdiv::ZDivRange::new(12u64, 45u64, 2);
         wiki_zrange.morton_encoding = 19u64;
         let (litmax, bigmin) = wiki_zrange.zdivide();
         assert_eq!(litmax, 15u64);
         assert_eq!(bigmin, 36u64);
+    }
+    #[test]
+    fn wikipedia_example_bbox_ranges() {
+        let bbox_ranges = crate::zdiv::get_bbox_ranges(12u64, 45u64, 2u64);
+        println!("{:#?}",bbox_ranges[0]);
+        assert_eq!(bbox_ranges[0][0], 12u64);  assert_eq!(bbox_ranges[0][1], 13u64);
+        // assert_eq!(bbox_ranges[1][0], 14u64);  assert_eq!(bbox_ranges[1][1], 15u64);
+        // assert_eq!(bbox_ranges[2][0], 36u64);  assert_eq!(bbox_ranges[2][1], 37u64);
+        // assert_eq!(bbox_ranges[3][0], 44u64);  assert_eq!(bbox_ranges[3][1], 45u64);
+
     }
 }

@@ -1,11 +1,11 @@
-mod zdiv;
 use std::env;
 use std::path::Path;
-// use serde_json::Value;
-// use morton_encoding::morton_encode_generic_checked;
+use std::collections::HashMap;
+use sqlite;
 
 fn main() {
-  let path: String = String::from("/Users/maxgrossman/Documents/github/maxgrossman/swell_history/bouys");
+  let path: String = String::from("/home/aughra/github/maxgrossman/swell_history/fixture/index_bouy_data");
+      // /Users/maxgrossman/Documents/github/maxgrossman/swell_history/bouys");
   let args: Vec<String> = env::args().collect();
   let swell_signatures: Vec<String> = vec![
     String::from("--d"),
@@ -14,18 +14,14 @@ fn main() {
   ];
 
   // start, can i de interleave and check against h/p/d?
-  let mut dhp: [Vec<u32>;2] = [Vec::new(), Vec::new()];
-  let mut have_sigs = 0;
+  let mut dhp: HashMap<char,[u32;2]> = HashMap::new();
 
   for i in 1..args.len() - 1 {
     let signature_flag: Option<usize> = swell_signatures.iter().position(|a| a.eq(&args[i]));
     match signature_flag {
       Some(shift_pos) => {
         let query: Vec<u32> = args[i+1].split(",").map(|n| n.parse::<u32>().unwrap()).collect::<Vec<u32>>();
-        dhp[0].push(query[0] * 100);
-        dhp[1].push(query[1] * 100);
-        // where h is encoded by 1, p 2, and d 4, encode their encodings in have_sigs when matched
-        have_sigs += 1 << shift_pos;
+        dhp.insert(swell_signatures[shift_pos].chars().nth(2).unwrap(),[query[0] * 100,query[1] * 100]);
       },
       None => {}
     }
@@ -37,27 +33,26 @@ fn main() {
         let bouy_db_path = Path::new(&bouy_db_str);
         if bouy_db_path.exists() {
             // create by bbox, knowing what index i am going to look through
-            let mut col_name: String = String::new();
-
-            if have_sigs & 1 == 1 { col_name.push_str("d"); }
-            if have_sigs & 2 == 2 { col_name.push_str("h"); }
-            if have_sigs & 4 == 4 { col_name.push_str("p"); }
-
-
             let mut statement: String = String::new();
+            let wheres = dhp.keys().map(|c| format!(
+                "{min} <= {col} AND {col} <= {max}",
+                col=c,min=dhp.get(c).unwrap()[0],max=dhp.get(c).unwrap()[1]
+            ))
+            .collect::<Vec<String>>()
+            .join(" AND ");
 
-            if col_name.len() == 1 {
-                statement.push_str(&format!(
-                   "SELECT reading_time FROM timestamps
-                    WHERE {min} <= {col_name} AND {col_name} <= {max};",
-                    col_name=col_name,
-                    min=dhp[0][0],
-                    max=dhp[1][1]
-                ))
-            } else {
-                // let bound_min: Option<u64> = morton_encode_generic_checked::<_,u64,_>(dhp[0].clone());
-                // let bound_max: Option<u64> = morton_encode_generic_checked::<_,u64,_>(dhp[1].clone());
-            }
+            statement.push_str(&format!(
+               "SELECT reading_time FROM timestamps
+                WHERE {wheres};", wheres=wheres
+            ));
+            println!("{}", statement);
+            let connection = sqlite::open(bouy_db_path.to_str().unwrap()).unwrap();
+            connection.iterate(statement, |pairs| {
+                for &(column, value) in pairs.iter() {
+                    println!("{} = {}", column, value.unwrap());
+                }
+                true
+            }).unwrap();
         }
     },
     None => {}

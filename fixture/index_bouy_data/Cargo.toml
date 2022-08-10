@@ -8,10 +8,6 @@ edition = "2021"
 [dependencies]
 chrono          = { version = "0.4" }
 chrono-tz       = { version = "0.4" }
-reqwest         = { version = "0.11.11", features = ["gzip", "stream"] }
-tokio           = { version = "1.19.2" , features = ["full"] }
+reqwest         = { version = "0.11.11", features = ["blocking", "gzip", "stream"] }
 flate2          = { version = "1.0.24" }
-regex           = { version = "1" }
-morton-encoding = { version = "2.0.1" }
 sqlite          = { version = "0.26.0" }
-

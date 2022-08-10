@@ -2,15 +2,36 @@ use chrono::TimeZone;
 use chrono::offset::LocalResult;
 use chrono_tz::{Tz,UTC};
 use flate2::read::GzDecoder;
-use morton_encoding::morton_encode;
 use std::env;
 use std::io::Read;
 use std::collections::HashMap;
 use std::path::Path;
 use sqlite;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+const MAX_BITS_MASK_3D: u64 = 0x1fffff;
+const MAX_BITS_MASK_2D: u32 = 0x0000ffff;
+
+fn load_into_bits_3d(mut x: u64) -> u64 {
+    x &= MAX_BITS_MASK_3D;
+    x = (x | x << 32) & 0x1f00000000ffff; 
+    x = (x | x << 16) & 0x1f0000ff0000ff; 
+    x = (x | x << 8)  & 0x100f00f00f00f00f; 
+    x = (x | x << 4)  & 0x10c30c30c30c30c3; 
+    x = (x | x << 2)  & 0x1249249249249249;
+    return x as u64;
+}
+
+fn load_into_bits_2d(mut x: u32) -> u32 {
+    x &= MAX_BITS_MASK_2D;
+    x = (x | (x << 8))  & 0x00ff00ff; 
+    x = (x | (x << 4))  & 0x0f0f0f0f;
+    x = (x | (x << 2))  & 0x33333333; 
+    x = (x | (x << 1))  & 0x55555555;
+    return x
+}
+
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: HashMap<String,String> = env::args().into_iter()
         .filter(|arg| arg.contains("="))
         .map(|arg| {
@@ -21,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let timezone_str = args.get("timezone");
     let url = args.get("url");
-    let bouy_id = args.get("bouy");
+    let bouy_id = args.get("bouy"); 
 
     if timezone_str.is_none() || url.is_none() || bouy_id.is_none() {
         panic!("missing required arguments timezone, url, and bouy");
@@ -29,13 +50,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // "America/California";
     // "https://www.ndbc.noaa.gov/data/historical/stdmet/46224h2021.txt.gz";
-    let client_result = reqwest::Client::builder()
+    let client_result = reqwest::blocking::Client::builder()
         .gzip(true)
         .build();
 
     match client_result {
         Ok(client) => {
-            let bytes = client.get(url.unwrap()).send().await?.bytes().await?;
+            let bytes = client.get(url.unwrap()).send()?.bytes()?;
             let b: &[u8] = &bytes.to_vec();
             let mut gz = GzDecoder::new(b);
             let mut table = String::new();
@@ -74,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             //TODO: FIGURE OUT HOW CHRONO_TZ MAKES ITS TIMEZONE NAMES AND THEN FIGURE OUT IF
             //THERE'S SOFTWARE OUT THERE THAT I USE TO RETRIEVE A NAME GIVEN A LON/LAT
-            let timezone: Tz = "US/Pacific".parse().unwrap();
+            let timezone: Tz = timezone_str.unwrap().parse().unwrap();
             for (i,line) in table.lines().enumerate() {
                 if i == 0 {
                     for (i, header) in line.split_whitespace().enumerate() {
@@ -111,38 +132,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         None => continue
                     };
 
-                    let swell_direction_int: u16 = swell_direction as u16;
-                    let swell_period: u16 = (data[*indexes.get("APD").unwrap()].parse::<f32>().unwrap() * 100.0) as u16;
-                    let wave_height: u16 = (data[*indexes.get("WVHT").unwrap()].parse::<f32>().unwrap() * 100.0) as u16;
+                    let swell_direction_int: u32 = swell_direction as u32;
+                    let swell_period: u32 = (data[*indexes.get("APD").unwrap()].parse::<f32>().unwrap() * 100.0) as u32;
+                    let wave_height: u32 = (data[*indexes.get("WVHT").unwrap()].parse::<f32>().unwrap() * 100.0) as u32;
 
-                    let dhp_zid: u64 = u64::try_from(
-                        morton_encode([
-                            swell_direction_int,
-                            wave_height,                 // make sure we only use first 21 bits
-                            swell_period
-                        ]) & 0xffffffffffffffff         // mask to only first 64 bits
-                    ).unwrap();
+                    let dhp_zid: u64 = 
+                        load_into_bits_3d(swell_direction_int as u64) |
+                        load_into_bits_3d(wave_height as u64) >> 1    |
+                        load_into_bits_3d(swell_period as u64) >> 2;
 
-                    let dh_zid: u32 = u32::try_from(
-                        morton_encode([
-                            swell_direction_int,
-                            wave_height
-                        ]) & 0xffffffff                 // mask to only first 32 bits
-                    ).unwrap();
+                    let dh_zid: u32 =
+                        load_into_bits_2d(swell_direction_int) |
+                        load_into_bits_2d(wave_height) >> 1;
 
-                    let dp_zid: u32 = u32::try_from(
-                        morton_encode([
-                            swell_direction_int,
-                            swell_period
-                        ]) & 0xffffffff                 // mask to only first 32 bits
-                    ).unwrap();
+                    let dp_zid: u32 = 
+                        load_into_bits_2d(swell_direction_int) |
+                        load_into_bits_2d(swell_period) >> 1;
 
-                    let hp_zid: u32 = u32::try_from(
-                        morton_encode([
-                            wave_height,
-                            swell_period
-                        ]) & 0xffffffff                 // mask to only first 32 bits
-                    ).unwrap();
+                    let hp_zid: u32 = 
+                        load_into_bits_2d(wave_height) |
+                        load_into_bits_2d(swell_period) >> 1;
 
                     connection.execute(format!(
                         "INSERT INTO TIMESTAMPS values ('{timestamp}',{dhp},{dp},{dh},{hp},{d},{h},{p});",

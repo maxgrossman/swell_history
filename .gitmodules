@@ -1,0 +1,3 @@
+[submodule "fixture/index_bouy_data/ZoneDetect"]
+	path = fixture/index_bouy_data/ZoneDetect
+	url = git@github.com:BertoldVdb/ZoneDetect.git

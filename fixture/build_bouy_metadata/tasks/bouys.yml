@@ -1,0 +1,23 @@
+---
+- name: Copy build_bouy_metadata to host
+  ansible.builtin.copy:
+    src: ./
+    dest: ~/build_bouy_metadata
+    owner: bouys
+    group: bouys
+    mode: u=drwxr,g=xr,o=x
+- name: Compile binary
+  command: |
+    pushd ~/build_bouy_metadata
+    cargo build --release"
+    popd
+  creates: ~/build_bouy_metadata/target/release/build_bouy_metadata
+- name: make binary accessible to users on system
+  ansible.builtin.copy:
+    remote_src: yes
+    src: ~/build_bouy_metadata/target/release/build_bouy_metadata
+    dest: /usr/loca/bin
+    creates: /usr/local/bin/build_bouy_metadata
+- name: Create the bouys.sqlite database
+  command: build_bouy_metadata ~/timezones.sqlite ~/bouys_history.txt
+  creates: ~/bouys.sqlite

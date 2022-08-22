@@ -1,0 +1,13 @@
+---
+- hosts: all
+  roles:
+    - roles/pup
+    - roles/spatialite
+    - andrewrothstein.jq
+    - hurricanehrndz.rustup
+
+  tasks:
+    - include_tasks:
+      - tasks/timezones.yml
+      - tasks/bouys_history.yml
+      - tasks/bouys.yml

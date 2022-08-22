@@ -1,0 +1,20 @@
+---
+- name: Install unzip package
+  ansible.builtin.package:
+    name: unzip
+    state: present
+- name: Download pup and validate its checksum
+  ansible.builtin.get_url: 
+    url: "{{ pup_url }}"
+    dest: "{{ pup_download_zip }}"
+    checksum: "{{ pup_checksums[pup_target] }}"
+    mode: '0444'
+- name: Unarchive pup zip
+  ansible.builtin.unarchive:
+    src: "{{ pup_download_zip }}"
+    dest: "{{ pup_bin_path }}"
+    creates: "{{ pup_bin_path }}/pup"
+    remote_src: yes
+
+
+  

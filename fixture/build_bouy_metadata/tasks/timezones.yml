@@ -1,0 +1,16 @@
+---
+- name: Download timezones
+  ansible.builtin.get_url:
+    url: "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2021c/timezones.shapefile.zip"
+    dest: "~/timezones.shapefile.zip"
+- name: Unarchive timezones
+  ansible.builtin.unarchive:
+    src: "~/timezones.shapefile.zip"
+    dest: "~"
+    creates: "~/combined-shapefile.shp"
+    mode: '0444'
+- name: Create timezones spatialite database
+  command: |
+    spatialite -silent ~/timezones.sqlite ".loadshp ~/combined-shapefile timezones CP1252 23032;"
+    spatialite -silent ~/timezones.sqlite "SELECT CreateSpatialIndex('timezones','geometry');"
+  creates: ~/timezones.sqlite

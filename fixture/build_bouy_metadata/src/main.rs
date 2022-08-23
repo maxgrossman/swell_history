@@ -1,5 +1,4 @@
 use std::env::args;
-use std::collections::HashMap;
 use std::f64::consts::{PI,E};
 use serde_json::{Value};
 use rusqlite::{Connection, NO_PARAMS};

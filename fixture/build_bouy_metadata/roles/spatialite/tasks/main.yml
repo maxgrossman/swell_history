@@ -1,2 +1,17 @@
 ---
-# tasks file for spatialite
+- name: Install sqlite
+  ansible.builtin.package:
+    name: sqlite
+    state: present
+- name: Download spatialite and validate its checksum
+  ansible.builtin.get_url: 
+    url: "{{ spatialite_url }}"
+    dest: "{{ spatialite_download_tar }}"
+    checksum: "{{ spatialite_tar_checksum }}"
+    mode: '0444'
+- name: Unarchive spatialite zip
+  ansible.builtin.unarchive:
+    src: "{{ pup_download_zip }}"
+    dest: "{{ pup_bin_path }}"
+    creates: "{{ pup_bin_path }}/pup"
+    remote_src: yes

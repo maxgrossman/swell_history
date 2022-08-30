@@ -1,6 +1,5 @@
 ---
 roles:
   - name: andrewrothstein.jq
-    version: "2.0"
-  - name: hurricanehrndz.rustup
-    version: "2.8"
+    version: "v1.0.8"
+

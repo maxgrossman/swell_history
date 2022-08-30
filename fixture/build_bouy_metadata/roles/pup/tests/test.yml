@@ -3,3 +3,5 @@
   remote_user: root
   roles:
     - pup
+  environment:
+    SSL_CERT_DIR: /etc/ssl/certs

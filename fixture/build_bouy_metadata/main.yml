@@ -3,11 +3,12 @@
   roles:
     - roles/pup
     - roles/spatialite
+    - { role: geerlingguy.pip, become: yes }
     - andrewrothstein.jq
-    - hurricanehrndz.rustup
 
+  vars:
+    pip_install_packages:
+      - name: shapefile-to-sqlite
   tasks:
-    - include_tasks:
-      - tasks/timezones.yml
-      - tasks/bouys_history.yml
-      - tasks/bouys.yml
+    - ansible.builtin.include_tasks: tasks/timezones.yml
+    # - ansible.builtin.include_tasks: tasks/bouys_history.yml

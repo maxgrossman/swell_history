@@ -6,8 +6,8 @@
   creates: ~/timezones.sqlite
 - name: Create newline separated list of history files
   command: >
-    cat ~bouy_history_files.html | 
+    cat ~/bouy_history_files.html |
     pup 'a json{}' | jq ".[].text" |
     awk '!/_old/' | tr -d '"' >
     ~/bouys_history.txt
-  creates: ~/bouys_history.txt 
+  creates: ~/bouys_history.txt

@@ -1,13 +1,13 @@
 ---
 - name: Download NBDC stations history
   ansible.builtin.get_url:
-    url: " https://www.ndbc.noaa.gov/data/historical/stdmet"
+    url: "https://www.ndbc.noaa.gov/data/historical/stdmet"
     dest: "~/bouy_history_files.html"
-  creates: ~/timezones.sqlite
 - name: Create newline separated list of history files
-  command: >
-    cat ~/bouy_history_files.html |
-    pup 'a json{}' | jq ".[].text" |
-    awk '!/_old/' | tr -d '"' >
-    ~/bouys_history.txt
-  creates: ~/bouys_history.txt
+  ansible.builtin.shell: |
+    cat ~/bouy_history_files.html \
+    | pup 'a json{}' |jq ".[].text" \
+    | awk '!/_old/' \
+    | tr -d '"' > ~/bouys_history.txt
+  args:
+    creates: ~/bouys_history.txt

@@ -2,7 +2,8 @@ use std::env::args;
 use std::f64::consts::{PI,E};
 use serde_json::{Value};
 use rusqlite::{Connection, NO_PARAMS};
-use std::io::{self, BufRead};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 use regex::Regex;
 
 // built referencing https://github.com/mapbox/tilebelt pointToTile
@@ -18,8 +19,11 @@ fn point_to_tile_x_y(lon: f64, lat: f64, z: u32) -> [u64;2] {
 }
 
 fn main() {
-    let timezones_db: String = args().collect::<Vec<String>>().pop().unwrap();
-    let mut connection = Connection::open("bouys.sqlite").unwrap();
+    let mut args_vec: Vec<String> = args().collect::<Vec<String>>();
+    let bouys_db: String = args_vec.pop().unwrap();
+    let bouys_history_file_path: String = args_vec.pop().unwrap();
+    let timezones_db: String = args_vec.pop().unwrap();
+    let mut connection = Connection::open(bouys_db).unwrap();
     let client = reqwest::blocking::Client::builder().build().unwrap();
     let resp = client.get("https://www.ndbc.noaa.gov/ndbcmapstations.json").send().unwrap();
     let bouys_json: Value = serde_json::from_str(resp.text().unwrap().as_str()).unwrap();
@@ -31,12 +35,15 @@ fn main() {
         let mut bouys_statement = String::from(
             "
             BEGIN TRANSACTION;
+            SELECT InitSpatialMetaData();
+            CREATE TABLE bouys(id text, tzid text);
+            SELECT AddGeometryColumn('bouys', 'geometry',  4326, 'POINT', 'XY');
             CREATE TABLE bouy_tile_indexes(bouy_id text, zoom integer, x integer, y integer, FOREIGN KEY(bouy_id) REFERENCES bouys(id));
             CREATE TABLE bouy_history(bouy_id text, filename text, FOREIGN KEY(bouy_id) REFERENCES bouys(id));
             CREATE INDEX idx_bouy_tile ON bouy_tile_indexes (bouy_id);
             CREATE INDEX idx_history ON bouy_history (bouy_id);
             "
-        ); 
+        );
         for station in bouys_json["station"].as_array().unwrap() {
             let lon = station["lon"].as_f64().unwrap();
             let lat = station["lat"].as_f64().unwrap();
@@ -46,18 +53,18 @@ fn main() {
                 bouy_id=bouy_id, lon=lon, lat=lat
             ).as_str());
 
-            for zoom in 16..17 {
+            for zoom in 16..21 {
                 let tile_x_y: [u64;2] = point_to_tile_x_y(lon, lat, zoom);
                 bouys_statement.push_str(format!(
                     "\nINSERT INTO bouy_tile_indexes values ('{bouy_id}', {zoom}, {x}, {y});",
                     bouy_id=bouy_id, zoom=zoom, x=tile_x_y[0], y=tile_x_y[1]
                 ).as_str());
             }
-    
         }
 
-        // read piped in
-        for line in io::stdin().lock().lines() {
+        let file = File::open(bouys_history_file_path).unwrap();
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
             let bouy_file: String = line.unwrap();
             let bouy_id = String::from(bouy_name_regex.split(bouy_file.as_str()).next().unwrap());
             bouys_statement.push_str(format!(
@@ -97,5 +104,5 @@ fn main() {
         tzid_insert_stmt.push_str("COMMIT;");
         connection.execute_batch(tzid_insert_stmt.as_str()).unwrap();
         connection.load_extension_disable();
-    }   
+    }
 }

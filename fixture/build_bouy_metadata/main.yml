@@ -1,14 +1,18 @@
 ---
 - hosts: all
   roles:
-    - roles/pup
-    - roles/spatialite
-    - { role: geerlingguy.pip, become: yes }
-    - andrewrothstein.jq
-
+    - role: roles/pup
+    - role: roles/spatialite
+    - role: roles/rust
+    - role: geerlingguy.pip
+      become: yes
+    - role: andrewrothstein.jq
   vars:
     pip_install_packages:
       - name: shapefile-to-sqlite
+  # pre_tasks:
+  #   - ansible.builtin.include_tasks: pre_tasks/bouys_user.yml
   tasks:
     - ansible.builtin.include_tasks: tasks/timezones.yml
-    # - ansible.builtin.include_tasks: tasks/bouys_history.yml
+    - ansible.builtin.include_tasks: tasks/bouys_history.yml
+    - ansible.builtin.include_tasks: tasks/bouys.yml

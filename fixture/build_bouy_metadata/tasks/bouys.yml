@@ -1,23 +1,30 @@
 ---
-- name: Copy build_bouy_metadata to host
-  ansible.builtin.copy:
-    src: ./
-    dest: ~/build_bouy_metadata
-    owner: bouys
-    group: bouys
-    mode: u=drwxr,g=xr,o=x
+- name: Rust bin needs libssl-dev to compile
+  ansible.builtin.apt:
+    name: libssl-dev
+    state: present
+- name: Rust bin needs libsqlite3-dev to compile
+  ansible.builtin.apt:
+    name: libsqlite3-dev
+    state: present
+# - name: Copy build_bouy_metadata to host
+#   ansible.builtin.copy:
+#     src: ./
+#     dest: ~/build_bouy_metadata
+#     owner: bouys
+#     group: bouys
+#     mode: u=drwxr,g=xr,o=x
 - name: Compile binary
-  command: |
-    pushd ~/build_bouy_metadata
-    cargo build --release"
-    popd
-  creates: ~/build_bouy_metadata/target/release/build_bouy_metadata
-- name: make binary accessible to users on system
-  ansible.builtin.copy:
-    remote_src: yes
-    src: ~/build_bouy_metadata/target/release/build_bouy_metadata
-    dest: /usr/loca/bin
-    creates: /usr/local/bin/build_bouy_metadata
+  ansible.builtin.command:
+    cmd: cargo build --release
+    chdir: ~/swell_history/fixture/build_bouy_metadata
+  args:
+    creates: ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadata
 - name: Create the bouys.sqlite database
-  command: build_bouy_metadata ~/timezones.sqlite ~/bouys_history.txt
-  creates: ~/bouys.sqlite
+  ansible.builtin.shell: >
+    ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadata
+    ~/timezones.sqlite
+    ~/bouys_history.txt
+    ~/bouys.sqlite
+  args:
+    creates: ~/bouys.sqlite

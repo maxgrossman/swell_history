@@ -7,22 +7,15 @@
   ansible.builtin.apt:
     name: libsqlite3-dev
     state: present
-# - name: Copy build_bouy_metadata to host
-#   ansible.builtin.copy:
-#     src: ./
-#     dest: ~/build_bouy_metadata
-#     owner: bouys
-#     group: bouys
-#     mode: u=drwxr,g=xr,o=x
 - name: Compile binary
   ansible.builtin.command:
     cmd: cargo build --release
-    chdir: ~/swell_history/fixture/build_bouy_metadata
+    chdir: "{{ source_dir }}"
   args:
-    creates: ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadatavi
+    creates: "{{ source_dir }}/target/release/build_bouy_metadata"
 - name: Create the bouys.sqlite database
   ansible.builtin.shell: >
-    ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadata
+    {{ source_dir }}/target/release/build_bouy_metadata
     ~/timezones.sqlite
     ~/bouys_history.txt
     ~/bouys.sqlite

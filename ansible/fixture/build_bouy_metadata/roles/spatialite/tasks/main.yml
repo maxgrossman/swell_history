@@ -1,16 +1,16 @@
 ---
 - name: add ubuntu gis repo
-  become: yes
+  become: true
   ansible.builtin.apt_repository:
     repo: ppa:ubuntugis/ppa
     state: present
 - name: install sqlite3
-  become: yes
+  become: true
   ansible.builtin.apt:
     name: sqlite3
     state: present
 - name: install mod_spatialite
-  become: yes
+  become: true
   ansible.builtin.apt:
     name: libsqlite3-mod-spatialite
     state: present

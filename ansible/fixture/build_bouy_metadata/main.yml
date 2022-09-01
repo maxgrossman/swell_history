@@ -10,9 +10,15 @@
   vars:
     pip_install_packages:
       - name: shapefile-to-sqlite
-  # pre_tasks:
-  #   - ansible.builtin.include_tasks: pre_tasks/bouys_user.yml
+    source_dir:
+      - ~/bouy_bouy_metadata
   tasks:
+    # TODO: see, can i using a forwarded agent clone this repo on other box?
+    - name: checkout fixture src
+      ansible.builtin.git:
+        repo: git@github.com:maxgrossman/swell_history.git
+        dest: ~/swell_history
+        version: '{{ swell_history_version }}'
     - ansible.builtin.include_tasks: tasks/timezones.yml
     - ansible.builtin.include_tasks: tasks/bouys_history.yml
     - ansible.builtin.include_tasks: tasks/bouys.yml

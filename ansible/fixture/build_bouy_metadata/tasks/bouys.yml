@@ -10,12 +10,12 @@
 - name: Compile binary
   ansible.builtin.command:
     cmd: cargo build --release
-    chdir: "{{ source_dir }}"
+    chdir: "{{ build_bouy_metadata_dir }}"
   args:
-    creates: "{{ source_dir }}/target/release/build_bouy_metadata"
+    creates: "{{ build_bouy_metadata_dir }}/target/release/build_bouy_metadata"
 - name: Create the bouys.sqlite database
   ansible.builtin.shell: >
-    {{ source_dir }}/target/release/build_bouy_metadata
+    {{ build_bouy_metadata_dir }}/target/release/build_bouy_metadata
     ~/timezones.sqlite
     ~/bouys_history.txt
     ~/bouys.sqlite

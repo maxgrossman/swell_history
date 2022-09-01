@@ -1,0 +1,5 @@
+FROM {{ item.image }}
+RUN apt-get update -y && \
+    apt install ca-certificates -y  && \
+    update-ca-certificates --fresh && \
+    apt-get install python3 -y

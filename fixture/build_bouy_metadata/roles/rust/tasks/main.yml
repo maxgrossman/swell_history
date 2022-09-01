@@ -1,0 +1,11 @@
+---
+# tasks file for rust
+- name: Make sure we have curl
+  become: yes
+  ansible.builtin.package:
+    name: curl
+    state: present
+- name: Install rust toolchain
+  ansible.builtin.shell: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y > /dev/null 2>&1
+  args:
+    creates: ~/.cargo/env

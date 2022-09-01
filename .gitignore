@@ -13,4 +13,4 @@ node_modules
 **/*timezones.s*
 fixture/build_bouy_metadata/bouy_history_files.html
 .vagrant
-roles
+/roles

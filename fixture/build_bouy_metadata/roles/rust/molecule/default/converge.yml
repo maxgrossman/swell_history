@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include swell_history.rust"
+      include_role:
+        name: "swell_history.rust"

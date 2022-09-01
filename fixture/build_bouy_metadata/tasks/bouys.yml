@@ -19,7 +19,7 @@
     cmd: cargo build --release
     chdir: ~/swell_history/fixture/build_bouy_metadata
   args:
-    creates: ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadata
+    creates: ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadatavi
 - name: Create the bouys.sqlite database
   ansible.builtin.shell: >
     ~/swell_history/fixture/build_bouy_metadata/target/release/build_bouy_metadata

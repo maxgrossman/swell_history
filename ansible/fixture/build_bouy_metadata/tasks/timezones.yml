@@ -1,7 +1,7 @@
 ---
 - name: Download timezones
   ansible.builtin.get_url:
-    url: "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2021c/timezones.shapefile.zip"
+    url: "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2021c/timezones-with-oceans.shapefile.zip"
     dest: "~/timezones.shapefile.zip"
 
 - name: Unarchive timezones

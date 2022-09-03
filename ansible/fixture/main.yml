@@ -12,6 +12,7 @@
       - name: shapefile-to-sqlite
     source_dir: ~/bouy_bouy_metadata
     build_bouy_metadata_dir: '{{ source_dir }}/fixture/build_bouy_metadata'
+    index_bouy_data_dir: '{{ source_dir }}/fixture/index_bouy_data'
   tasks:
     # TODO: see, can i using a forwarded agent clone this repo on other box?
     - name: checkout fixture src
@@ -20,6 +21,20 @@
         dest: '{{ source_dir }}'
         version: '{{ swell_history_version }}'
       delegate_to: localhost
+    # Get dependencies Rust will need for compiling
+    - name: Rust bin needs libssl-dev to compile
+      ansible.builtin.apt:
+        name: libssl-dev
+        state: present
+    - name: Rust bin needs libsqlite3-dev to compile
+      ansible.builtin.apt:
+        name: libsqlite3-dev
+        state: present
     - ansible.builtin.include_tasks: tasks/timezones.yml
     - ansible.builtin.include_tasks: tasks/bouys_history.yml
+    - ansible.builtin.include_tasks: tasks/compile_binary.yml
+      loop:
+        - '{{ build_bouy_metadata_dir }}'
+        - '{{ index_bouy_data_dir }}'
     - ansible.builtin.include_tasks: tasks/bouys.yml
+    - ansible.builtin.include_tasks: tasks/index_bouy_data.yml

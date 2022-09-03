@@ -1,0 +1,5 @@
+- name: Create the individual bouy databases
+  ansible.builtin.shell: >
+    {{ index_bouy_data_dir }}/target/release/index_bouy_data ~/bouys.sqlite
+  args:
+    creates: ~/created_bouys

@@ -3,7 +3,8 @@ use chrono::offset::LocalResult;
 use chrono_tz::{Tz,UTC};
 use flate2::read::GzDecoder;
 use std::env;
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read,Write};
 use std::collections::HashMap;
 use std::path::Path;
 use rusqlite::{Connection, NO_PARAMS};
@@ -14,19 +15,19 @@ const MAX_BITS_MASK_2D: u32 = 0x0000ffff;
 
 fn load_into_bits_3d(mut x: u64) -> u64 {
     x &= MAX_BITS_MASK_3D;
-    x = (x | x << 32) & 0x1f00000000ffff; 
-    x = (x | x << 16) & 0x1f0000ff0000ff; 
-    x = (x | x << 8)  & 0x100f00f00f00f00f; 
-    x = (x | x << 4)  & 0x10c30c30c30c30c3; 
+    x = (x | x << 32) & 0x1f00000000ffff;
+    x = (x | x << 16) & 0x1f0000ff0000ff;
+    x = (x | x << 8)  & 0x100f00f00f00f00f;
+    x = (x | x << 4)  & 0x10c30c30c30c30c3;
     x = (x | x << 2)  & 0x1249249249249249;
     return x as u64;
 }
 
 fn load_into_bits_2d(mut x: u32) -> u32 {
     x &= MAX_BITS_MASK_2D;
-    x = (x | (x << 8))  & 0x00ff00ff; 
+    x = (x | (x << 8))  & 0x00ff00ff;
     x = (x | (x << 4))  & 0x0f0f0f0f;
-    x = (x | (x << 2))  & 0x33333333; 
+    x = (x | (x << 2))  & 0x33333333;
     x = (x | (x << 1))  & 0x55555555;
     return x
 }
@@ -38,7 +39,7 @@ fn main() -> () {
     // get list of bouys, their timezone ids, and all the known history files
     let mut stmt = connection.prepare(
         "
-        SELECT bouys.id, bouys.tzid, group_concat(bouy_history.filename) 
+        SELECT bouys.id, bouys.tzid, group_concat(bouy_history.filename)
         FROM bouys join bouy_history on bouys.id=bouy_history.bouy_id
         WHERE bouys.tzid != ''
         GROUP BY bouys.id;
@@ -147,7 +148,7 @@ fn main() -> () {
                     let swell_period: u32 = (data[*indexes.get("APD").unwrap()].parse::<f32>().unwrap() * 100.0) as u32;
                     let wave_height: u32 = (data[*indexes.get("WVHT").unwrap()].parse::<f32>().unwrap() * 100.0) as u32;
 
-                    let dhp_zid: u64 = 
+                    let dhp_zid: u64 =
                         load_into_bits_3d(swell_direction_int as u64) |
                         load_into_bits_3d(wave_height as u64) >> 1    |
                         load_into_bits_3d(swell_period as u64) >> 2;
@@ -156,11 +157,11 @@ fn main() -> () {
                         load_into_bits_2d(swell_direction_int) |
                         load_into_bits_2d(wave_height) >> 1;
 
-                    let dp_zid: u32 = 
+                    let dp_zid: u32 =
                         load_into_bits_2d(swell_direction_int) |
                         load_into_bits_2d(swell_period) >> 1;
 
-                    let hp_zid: u32 = 
+                    let hp_zid: u32 =
                         load_into_bits_2d(wave_height) |
                         load_into_bits_2d(swell_period) >> 1;
 
@@ -174,7 +175,8 @@ fn main() -> () {
             }
             bouy_statement.push_str("\nCOMMIT;");
             bouy_db_connection.execute_batch(bouy_statement.as_str()).unwrap();
-        } 
+        }
     }
+    File::create("~/created_bouys").unwrap().write_all(b".").unwrap();
 }
 

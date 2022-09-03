@@ -1,0 +1,6 @@
+- name: "Compile binary: {{ item }}"
+  ansible.builtin.command:
+    cmd: cargo build --release
+    chdir: "{{ item }}"
+  args:
+    creates: "{{ item }}/target/release/{{ item }}"

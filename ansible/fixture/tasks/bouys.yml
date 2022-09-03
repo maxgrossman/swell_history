@@ -1,0 +1,9 @@
+---
+- name: Create the bouys.sqlite database
+  ansible.builtin.shell: >
+    {{ build_bouy_metadata_dir }}/target/release/build_bouy_metadata
+    ~/timezones.sqlite
+    ~/bouys_history.txt
+    ~/bouys.sqlite
+  args:
+    creates: ~/bouys.sqlite

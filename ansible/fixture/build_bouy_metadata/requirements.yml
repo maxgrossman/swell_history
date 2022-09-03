@@ -1,0 +1,6 @@
+---
+roles:
+  - name: andrewrothstein.jq
+    version: "v1.0.8"
+  - name: geerlingguy.pip
+    version: 2.2.0

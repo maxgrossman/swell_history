@@ -1,0 +1,23 @@
+---
+- name: Rust bin needs libssl-dev to compile
+  ansible.builtin.apt:
+    name: libssl-dev
+    state: present
+- name: Rust bin needs libsqlite3-dev to compile
+  ansible.builtin.apt:
+    name: libsqlite3-dev
+    state: present
+- name: Compile binary
+  ansible.builtin.command:
+    cmd: cargo build --release
+    chdir: "{{ build_bouy_metadata_dir }}"
+  args:
+    creates: "{{ build_bouy_metadata_dir }}/target/release/build_bouy_metadata"
+- name: Create the bouys.sqlite database
+  ansible.builtin.shell: >
+    {{ build_bouy_metadata_dir }}/target/release/build_bouy_metadata
+    ~/timezones.sqlite
+    ~/bouys_history.txt
+    ~/bouys.sqlite
+  args:
+    creates: ~/bouys.sqlite

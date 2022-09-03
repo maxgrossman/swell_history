@@ -1,0 +1,27 @@
+---
+- name: Download timezones
+  ansible.builtin.get_url:
+    url: "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2021c/timezones-with-oceans.shapefile.zip"
+    dest: "~/timezones.shapefile.zip"
+
+- name: Unarchive timezones
+  ansible.builtin.unarchive:
+    src: "~/timezones.shapefile.zip"
+    dest: "~/"
+    creates: "~/combined-shapefile.shp"
+    mode: '0444'
+
+- name: Create Timezone
+  ansible.builtin.unarchive:
+    src: "~/timezones.shapefile.zip"
+    dest: "~/"
+    creates: "~/combined-shapefile.shp"
+    mode: '0444'
+
+# this is freaking slow but the spatialite tooks has a memory allocation bug so w/e for now...
+- name: Create timezones spatialite database
+  ansible.builtin.shell: |
+    touch ~/timezones.sqlite;
+    shapefile-to-sqlite ~/timezones.sqlite ~/combined-shapefile.shp --spatialite --spatial-index --table=timezones;
+  args:
+    creates: "~/timezones.sqlite"

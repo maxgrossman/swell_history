@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include build_bouy_metadata.spatialite"
+      include_role:
+        name: "build_bouy_metadata.spatialite"

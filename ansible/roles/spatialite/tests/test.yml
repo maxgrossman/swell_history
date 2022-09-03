@@ -1,0 +1,7 @@
+---
+- hosts: localhost
+  remote_user: root
+  roles:
+    - spatialite
+  environment:
+    SSL_CERT_DIR: /etc/ssl/certs

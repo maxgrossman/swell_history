@@ -1,0 +1,25 @@
+---
+- hosts: all
+  roles:
+    - role: roles/pup
+    - role: roles/spatialite
+    - role: roles/rust
+    - role: geerlingguy.pip
+      become: yes
+    - role: andrewrothstein.jq
+  vars:
+    pip_install_packages:
+      - name: shapefile-to-sqlite
+    source_dir: ~/bouy_bouy_metadata
+    build_bouy_metadata_dir: '{{ source_dir }}/fixture/build_bouy_metadata'
+  tasks:
+    # TODO: see, can i using a forwarded agent clone this repo on other box?
+    - name: checkout fixture src
+      ansible.builtin.git:
+        repo: git@github.com:maxgrossman/swell_history.git
+        dest: '{{ source_dir }}'
+        version: '{{ swell_history_version }}'
+      delegate_to: localhost
+    - ansible.builtin.include_tasks: tasks/timezones.yml
+    - ansible.builtin.include_tasks: tasks/bouys_history.yml
+    - ansible.builtin.include_tasks: tasks/bouys.yml

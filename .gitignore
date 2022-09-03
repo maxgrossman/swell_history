@@ -8,3 +8,9 @@ node_modules
 .vscode
 **/*.svg
 **/*/target
+
+**/*combined-shapefile*
+**/*timezones.s*
+fixture/build_bouy_metadata/bouy_history_files.html
+.vagrant
+/roles

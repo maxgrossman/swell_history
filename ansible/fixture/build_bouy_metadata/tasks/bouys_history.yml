@@ -1,0 +1,15 @@
+---
+- name: Download NBDC stations history
+  ansible.builtin.get_url:
+    url: "https://www.ndbc.noaa.gov/historical_data.shtml"
+    dest: "~/bouy_history_files.html"
+- name: Create newline separated list of history files
+  ansible.builtin.shell: |
+    cat ~/bouy_history_files.html \
+    | pup 'a json{}' \
+    | jq '.[].href?' \
+    | grep 'download_data.php' \
+    | grep -o -P '(?<=filename=).*(?=&amp)' \
+    | awk '!/_old/' > ~/bouys_history.txt
+  args:
+    creates: ~/bouys_history.txt

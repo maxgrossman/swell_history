@@ -1,22 +1,76 @@
 use std::iter::Iterator;
 
-
 // 1 set for first 21 bits
 const MAX_NUMB_BITS: u64 = 21;
 const MAX_BITS_MASK: u64 = 0x1fffff;
 
-struct ZDivRange {
-    min: u64,
-    max: u64,
-    dims: u64,
-    max_misses: usize,
-    have_next: bool,
-    morton_encoding: u64
+fn load_into_bits_2d(value: u32) -> u64 {
+    let mut masked: u64 = (value as u64) & MAX_BITS_MASK;
+    masked = (masked ^ (masked << 32)) & 0x00000000ffffffff;
+    masked = (masked ^ (masked << 16)) & 0x0000ffff0000ffff;
+    masked = (masked ^ (masked <<  8)) & 0x00ff00ff00ff00ff;
+    masked = (masked ^ (masked <<  4)) & 0x0f0f0f0f0f0f0f0f;
+    masked = (masked ^ (masked <<  2)) & 0x3333333333333333;
+    masked = (masked ^ (masked <<  1)) & 0x5555555555555555;
+    return masked;
 }
 
-impl ZDivRange {
-    pub fn new (min: u64, max: u64, dims: u64) -> Self {
-        Self { min: min, max:max, dims:dims, max_misses: 5, have_next: false, morton_encoding: min }
+fn gather_dim_bits(morton_value: u64) -> u32 {
+        let mut masked: u64 = morton_value & 0x5555555555555555u64;
+        masked = (masked ^ (masked >>  1)) & 0x3333333333333333u64;
+        masked = (masked ^ (masked >>  2)) & 0x0f0f0f0f0f0f0f0fu64;
+        masked = (masked ^ (masked >>  4)) & 0x00ff00ff00ff00ffu64;
+        masked = (masked ^ (masked >>  8)) & 0x0000ffff0000ffffu64;
+        masked = (masked ^ (masked >> 16)) & 0x00000000ffffffffu64;
+        return masked as u32;
+}
+
+fn break_into_array_2d(morton_value: u64) -> [u32;2] {
+    return [
+        gather_dim_bits(morton_value),
+        gather_dim_bits(morton_value) >> 1
+    ]
+}
+
+struct ZDiv2dRange {
+    min_decoded: [u32;2],
+    min: u64,
+    max_decoded: [u32;2],
+    max: u64,
+    dims: u64,
+    morton_encoding: u64,
+    morton_decoded: [u32;2]
+}
+
+impl ZDiv2dRange {
+    pub fn new (min_decoded: [u32;2], max_decoded: [u32;2]) -> Self {
+        let min = load_into_bits_2d(min_decoded[0]) | load_into_bits_2d(min_decoded[1]) << 1;
+        let max = load_into_bits_2d(max_decoded[0]) | load_into_bits_2d(max_decoded[1]) << 1;
+        Self {
+            min_decoded: min_decoded,
+            max_decoded: max_decoded,
+            min: min,
+            max: max,
+            morton_encoding: min,
+            morton_decoded: min_decoded,
+            dims: 2
+        }
+    }
+    fn merge_every_other_bit(&self, morton_value: u64) -> u32 {
+        let mut masked: u64 = morton_value & 0x5555555555555555u64;
+        masked = (masked ^ (masked >>  1)) & 0x3333333333333333u64;
+        masked = (masked ^ (masked >>  2)) & 0x0f0f0f0f0f0f0f0fu64;
+        masked = (masked ^ (masked >>  4)) & 0x00ff00ff00ff00ffu64;
+        masked = (masked ^ (masked >>  8)) & 0x0000ffff0000ffffu64;
+        masked = (masked ^ (masked >> 16)) & 0x00000000ffffffffu64;
+        return masked as u32;
+
+    }
+    fn get_morton_array_2d(&self, morton_value: u64) -> [u32;2] {
+        return [
+            self.merge_every_other_bit(morton_value),
+            self.merge_every_other_bit(morton_value) >> 1,
+        ]
     }
     fn split(&self, to_split: u64) -> u64 {
         let mut split_num = to_split & MAX_BITS_MASK;
@@ -96,45 +150,60 @@ impl ZDivRange {
     fn set_morton_encoding_to_bigmin(&mut self) -> () {
         let (litmax, bigmin) = self.zdivide();
         self.morton_encoding = bigmin;
+        self.morton_decoded = self.get_morton_array_2d(bigmin);
+    }
+
+
+    fn in_bounds(&mut self) -> bool {
+        return self.min_decoded[0] <= self.morton_decoded[0] && // morton x greater than eq min x
+               self.max_decoded[0] >= self.morton_decoded[0] && // morton x less than eq max x
+               self.min_decoded[1] <= self.morton_decoded[1] && // morton y greater than eq min y
+               self.max_decoded[1] >= self.morton_decoded[1];   // morton y less than eq max y
     }
 }
 
-impl IntoIterator for ZDivRange {
+impl IntoIterator for ZDiv2dRange {
     type Item = u64;
-    type IntoIter = ZDivRangeIntoIterator;
+    type IntoIter = ZDiv2dRangeIntoIterator;
     fn into_iter(self) -> Self::IntoIter {
-        return ZDivRangeIntoIterator { zdiv_range: self };
-
+        let have_next = self.min < self.max;
+        return ZDiv2dRangeIntoIterator {
+            zdiv_range: self,
+            max_misses: 5,
+            have_next: have_next
+        };
     }
 
 }
 
-struct ZDivRangeIntoIterator {
-    zdiv_range: ZDivRange,
+struct ZDiv2dRangeIntoIterator {
+    zdiv_range: ZDiv2dRange,
+    max_misses: usize,
+    have_next: bool
 }
 
-impl Iterator for ZDivRangeIntoIterator {
+impl Iterator for ZDiv2dRangeIntoIterator {
     type Item = u64;
     fn next(&mut self) -> Option<Self::Item> {
         let mut misses = 0;
-        let max: u64 = self.zdiv_range.max;
-        let min: u64 = self.zdiv_range.min;
-        while misses < self.zdiv_range.max_misses && self.zdiv_range.have_next {
-            if min <= self.zdiv_range.morton_encoding &&
-               self.zdiv_range.morton_encoding <= max {
-               self.zdiv_range.have_next = true;
-               self.zdiv_range.morton_encoding += 1;
-               return Some(self.zdiv_range.morton_encoding);
+        while misses < self.max_misses && self.zdiv_range.morton_encoding <= self.zdiv_range.max {
+            self.zdiv_range.morton_encoding += 1;
+            self.zdiv_range.morton_decoded = 
+                self.zdiv_range.get_morton_array_2d(self.zdiv_range.morton_encoding);
+            if self.zdiv_range.in_bounds() {
+                self.have_next = true;
+                return Some(self.zdiv_range.morton_encoding);
             } else {
                 misses += 1;
             }
         }
-        if self.zdiv_range.morton_encoding < max {
+
+        if self.zdiv_range.morton_encoding < self.zdiv_range.max {
+            self.have_next = true;
             self.zdiv_range.set_morton_encoding_to_bigmin();
-            self.zdiv_range.have_next = true;
             return Some(self.zdiv_range.morton_encoding);
         } else {
-            self.zdiv_range.have_next = false;
+            self.have_next = false;
             None
         }
     }
@@ -144,26 +213,31 @@ impl Iterator for ZDivRangeIntoIterator {
  * Given minimum and maximum mortons codes inclusive of codes not in
  * a bounding box, replies set of ranges exclusive to only those in bounds.
  */
-fn get_bbox_ranges(min: u64, max: u64, dimensions: u64) -> Vec<Vec<u64>> {
-    let mut zdiv_range_iter: ZDivRangeIntoIterator =
-        crate::zdiv::ZDivRange::new(min, max, dimensions).into_iter();
+fn get_2d_bbox_ranges(min_pnt: [u32;2], max_pnt: [u32;2]) -> Vec<Vec<u64>> {
+    let mut zdiv_range_iter: ZDiv2dRangeIntoIterator =
+        crate::zdiv::ZDiv2dRange::new(min_pnt, max_pnt).into_iter();
 
     let mut zdiv_ranges: Vec<Vec<u64>> = Vec::new();
     let mut range_index: usize = 0;
-    let mut last: u64 = 0;
+    let mut last: u64 = zdiv_range_iter.zdiv_range.morton_encoding;
 
-    match zdiv_range_iter.next() {
-        Some(morton) => {
-            last = morton;
-            zdiv_ranges.push(vec![morton]);
-        },
-        None => {}
-    }
+    zdiv_ranges.push(vec![zdiv_range_iter.zdiv_range.morton_encoding]);
 
-    for morton in zdiv_range_iter.next() {
+    while let Some(morton) = zdiv_range_iter.next() {
+        println!("{}", morton);
         if (last + 1) != morton {
-            if zdiv_ranges[range_index][0] != last {
-                zdiv_ranges[range_index].push(last);
+            match zdiv_ranges.get(range_index) {
+                Some(range) => {
+                    match range.get(0) {
+                        Some(first) => {
+                            if *first != last {
+                                zdiv_ranges[range_index].push(last);
+                            }
+                        },
+                        None => {}
+                    }
+                },
+                None => panic!("Looking for out of index range")
             }
             range_index += 1;
         }
@@ -183,7 +257,7 @@ fn get_bbox_ranges(min: u64, max: u64, dimensions: u64) -> Vec<Vec<u64>> {
 mod tests {
     #[test]
     fn wikipedia_example() {
-        let mut wiki_zrange =  crate::zdiv::ZDivRange::new(12u64, 45u64, 2);
+        let mut wiki_zrange =  crate::zdiv::ZDiv2dRange::new([2,2], [3,6]);
         wiki_zrange.morton_encoding = 19u64;
         let (litmax, bigmin) = wiki_zrange.zdivide();
         assert_eq!(litmax, 15u64);
@@ -191,8 +265,7 @@ mod tests {
     }
     #[test]
     fn wikipedia_example_bbox_ranges() {
-        let bbox_ranges = crate::zdiv::get_bbox_ranges(12u64, 45u64, 2u64);
-        println!("{:#?}",bbox_ranges[0]);
+        let bbox_ranges = crate::zdiv::get_2d_bbox_ranges([5,3], [10,5]);
         assert_eq!(bbox_ranges[0][0], 12u64);  assert_eq!(bbox_ranges[0][1], 13u64);
         // assert_eq!(bbox_ranges[1][0], 14u64);  assert_eq!(bbox_ranges[1][1], 15u64);
         // assert_eq!(bbox_ranges[2][0], 36u64);  assert_eq!(bbox_ranges[2][1], 37u64);

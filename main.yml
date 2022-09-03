@@ -1,0 +1,23 @@
+---
+- name: swell_history_dev
+  hosts: all
+  roles:
+    - { role: geerlingguy.pip, become: yes }
+    - { role: geerlingguy.docker, become: yes }
+  collections:
+    - community.docker
+  vars:
+    docker_users:
+      - vagrant
+    pip_install_packages:
+      - name: docker
+      - name: molecule
+      - name: molecule-docker
+  connection: local
+  tasks:
+    - name: Docker is installed
+      docker_image:
+        name: hello-world
+        source: pull
+        state: present
+

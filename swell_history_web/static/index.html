@@ -1,0 +1,73 @@
+<html> 
+    <head>  
+        <link rel="stylesheet" href="assets/leaflet.css"/>
+        <script src="assets/leaflet.min.js"></script>
+        <style>
+            #map { width: 500px; height: 500px }
+        </style>
+    </head>
+    <script>
+        var API = 'http://localhost:8008';
+        var map, tileLayer, snaleTrail = {};
+        
+        // check if this bounds isready captured in our snaleTrail
+        function alreadySeen() {
+
+        }
+
+        // update where we have been in our snale trail.
+        function updateSeen() {
+
+        }
+        
+        function getTiles(leafletBounds, zoom) {
+            if (alreadySeen(leafletBounds)) return;
+
+            updateSeen(leafletBounds)
+
+            var min = map.project(leafletBounds.getNorthWest(), zoom).divideBy(256).floor(),
+                max = map.project(leafletBounds.getNorthEast(), zoom).divideBy(256).floor(),
+                mod = Math.pow(2, zoom),
+                tiles = [];
+            
+            for (var i = min.x; i <= max.x; i++) {
+                for (var j = min.y; j <= max.y; j++) {            
+                    var pnt = L.point(
+                        (i % mod + mod) % mod,
+                        (j % mod + mod) % mod
+                    );
+
+                    tiles.push([zoom, (i % mod + mod) % mod, (j % mod + mod) % mod])
+
+                }
+            }
+
+            return tiles;
+        }
+
+        function getBouys(tiles = []) {
+            Promise.all(tiles.map(t => {
+                let url = `${API}/bouys/${t.join('/')}.json`
+                return fetch(url).then(r => r.json())
+            })).then(bouys => {
+                console.log(bouys)
+            })
+        }
+
+
+        window.onload = () => {
+            map = L.map('map').setView([39.8283, -88.5795], 4);
+            tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            })
+
+            tileLayer.on('load', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
+            map.on('zoomend', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
+
+            tileLayer.addTo(map);
+        }
+    </script>
+    <body>houdoken!
+        <div id="map"></div>
+    </body>  
+</html>  

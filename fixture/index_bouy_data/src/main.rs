@@ -60,7 +60,7 @@ fn main() -> () {
         let tzid: String = res_row.get(1).unwrap();
         let history_files: String = res_row.get(2).unwrap();
 
-        let bouy_db = &format!("{}.sqlite", bouy_id);
+        let bouy_db = &format!("~/{}.sqlite", bouy_id);
         let db: &Path = Path::new(bouy_db);
         let db_exists = db.exists();
 

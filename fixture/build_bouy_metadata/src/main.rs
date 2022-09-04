@@ -53,7 +53,7 @@ fn main() {
                 bouy_id=bouy_id, lon=lon, lat=lat
             ).as_str());
 
-            for zoom in 16..21 {
+            for zoom in 0..21 {
                 let tile_x_y: [u64;2] = point_to_tile_x_y(lon, lat, zoom);
                 bouys_statement.push_str(format!(
                     "\nINSERT INTO bouy_tile_indexes values ('{bouy_id}', {zoom}, {x}, {y});",

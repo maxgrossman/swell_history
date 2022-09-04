@@ -15,3 +15,5 @@ node_modules
 fixture/build_bouy_metadata/bouy_history_files.html
 .vagrant
 /roles
+
+**/*:Zone.Identifier

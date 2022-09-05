@@ -1,5 +1,5 @@
-<html> 
-    <head>  
+<html>
+    <head>
         <link rel="stylesheet" href="assets/leaflet.css"/>
         <script src="assets/leaflet.min.js"></script>
         <style>
@@ -7,31 +7,16 @@
         </style>
     </head>
     <script>
-        var API = 'http://localhost:8008';
-        var map, tileLayer, snaleTrail = {};
-        
-        // check if this bounds isready captured in our snaleTrail
-        function alreadySeen() {
+        var API = 'http://localhost:8008', map, tileLayer, bouysLayer, bouysIndex = {};
 
-        }
-
-        // update where we have been in our snale trail.
-        function updateSeen() {
-
-        }
-        
         function getTiles(leafletBounds, zoom) {
-            if (alreadySeen(leafletBounds)) return;
+            const tiles = [],
+                  min = map.project(leafletBounds.getNorthWest(), zoom).divideBy(256).floor(),
+                  max = map.project(leafletBounds.getNorthEast(), zoom).divideBy(256).floor(),
+                  mod = Math.pow(2, zoom);
 
-            updateSeen(leafletBounds)
-
-            var min = map.project(leafletBounds.getNorthWest(), zoom).divideBy(256).floor(),
-                max = map.project(leafletBounds.getNorthEast(), zoom).divideBy(256).floor(),
-                mod = Math.pow(2, zoom),
-                tiles = [];
-            
             for (var i = min.x; i <= max.x; i++) {
-                for (var j = min.y; j <= max.y; j++) {            
+                for (var j = min.y; j <= max.y; j++) {
                     var pnt = L.point(
                         (i % mod + mod) % mod,
                         (j % mod + mod) % mod
@@ -49,25 +34,47 @@
             Promise.all(tiles.map(t => {
                 let url = `${API}/bouys/${t.join('/')}.json`
                 return fetch(url).then(r => r.json())
-            })).then(bouys => {
-                console.log(bouys)
+            })).then(tiles => {
+                tiles.forEach(bouys => {
+                    bouys.forEach(bouy => {
+                        if (!bouysIndex.hasOwnProperty(bouy.id)) {
+                            bouysIndex[bouy.properties.id] = true
+                            bouysLayer.addData(bouy)
+                        }
+                    })
+                })
             })
         }
 
 
         window.onload = () => {
+            var geojsonMarkerOptions = {
+                radius: 1,
+                fillColor: "#ff7800",
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            };
+
             map = L.map('map').setView([39.8283, -88.5795], 4);
             tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            })
+            });
+            bouysLayer = L.geoJSON({'type': 'FeatureCollection', features: []}, {    
+                pointToLayer: function (feature, latlng) {
+                    return L.circleMarker(latlng, geojsonMarkerOptions);
+                }
+            });
 
             tileLayer.on('load', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
             map.on('zoomend', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
 
+            bouysLayer.addTo(map)
             tileLayer.addTo(map);
         }
     </script>
     <body>houdoken!
         <div id="map"></div>
-    </body>  
-</html>  
+    </body>
+</html>

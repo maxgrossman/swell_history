@@ -60,33 +60,26 @@ fn main() -> () {
         let tzid: String = res_row.get(1).unwrap();
         let history_files: String = res_row.get(2).unwrap();
 
-        let bouy_db = &format!("~/{}.sqlite", bouy_id);
-        let db: &Path = Path::new(bouy_db);
-        let db_exists = db.exists();
+        bouy_db_connection.execute_batch(format("
+            BEGIN;
+            CREATE TABLE timestamps_{bouy_id} (reading_time timestamp primary key,
+                                    dhp bigint,
+                                    dh  bigint,
+                                    dp  bigint,
+                                    hp  bigint,
+                                    d   bigint,
+                                    h   bigint,
+                                    p   bigint);
 
-        let mut bouy_db_connection = Connection::open(bouy_db).unwrap();
-        if !db_exists {
-            bouy_db_connection.execute_batch("
-                BEGIN;
-                CREATE TABLE timestamps (reading_time timestamp primary key,
-                                        dhp bigint,
-                                        dh  bigint,
-                                        dp  bigint,
-                                        hp  bigint,
-                                        d   bigint,
-                                        h   bigint,
-                                        p   bigint);
-
-                CREATE INDEX indx_dhp on timestamps(dhp);
-                CREATE INDEX indx_dh on timestamps(dh);
-                CREATE INDEX indx_dp on timestamps(dp);
-                CREATE INDEX indx_hp on timestamps(hp);
-                CREATE INDEX indx_d on timestamps(d);
-                CREATE INDEX indx_h on timestamps(h);
-                CREATE INDEX indx_p on timestamps(p);
-                COMMIT;
-          ").unwrap();
-        }
+            CREATE INDEX indx_dhp on timestamps(dhp);
+            CREATE INDEX indx_dh on timestamps(dh);
+            CREATE INDEX indx_dp on timestamps(dp);
+            CREATE INDEX indx_hp on timestamps(hp);
+            CREATE INDEX indx_d on timestamps(d);
+            CREATE INDEX indx_h on timestamps(h);
+            CREATE INDEX indx_p on timestamps(p);
+            COMMIT;
+        ", bouy_id = bouy_id).as_str()).unwrap();
 
         println!("Indexing {}", bouy_id);
 
@@ -166,7 +159,8 @@ fn main() -> () {
                         load_into_bits_2d(swell_period) >> 1;
 
                     bouy_statement.push_str(format!(
-                        "\nINSERT OR IGNORE INTO timestamps values ('{timestamp}',{dhp},{dp},{dh},{hp},{d},{h},{p});",
+                        "\nINSERT OR IGNORE INTO timestamps_{bouy_id} values ('{timestamp}',{dhp},{dp},{dh},{hp},{d},{h},{p});",
+                        bouy_id=bouy_id,
                         dhp=dhp_zid,dp=dp_zid,dh=dh_zid,
                         hp=hp_zid,d=swell_direction,
                         h=wave_height,p=swell_period,timestamp=utc_string

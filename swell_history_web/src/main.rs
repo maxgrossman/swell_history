@@ -1,5 +1,5 @@
 use actix_web::{get, App, HttpRequest, HttpResponse, HttpServer, Error as AWError};
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType,CacheControl,CacheDirective};
 use actix_web::web::{self, Data, Query};
 use actix_files as fs;
 use r2d2_sqlite::{self, SqliteConnectionManager};
@@ -19,6 +19,7 @@ async fn bouy_tiles(req: HttpRequest, db: Data<Pool>) -> Result<HttpResponse, AW
     let features_result = db::execute(&db, Queries::GetTiles, bouy_params).await?;
 
     return Ok(HttpResponse::Ok()
+        .insert_header(CacheControl(vec![CacheDirective::MaxAge(86400u32)]))
         .insert_header(ContentType::json())
         .body(String::from(features_result.get(0).unwrap())));
 }
@@ -27,23 +28,26 @@ async fn bouy_tiles(req: HttpRequest, db: Data<Pool>) -> Result<HttpResponse, AW
 struct BouysRequest {
     direction: Option<String>,
     height: Option<String>,
-    period: Option<String>
+    period: Option<String>,
+    key: Option<String>
 }
 
-#[get("bouys/{bouy_id}")]
-async fn bouy(req: HttpRequest, queryParams: Query<BouysRequest>, db: Data<Pool>) -> Result<HttpResponse, AWError> {
+#[get("bouys/{bouy_id}.json")]
+async fn bouy(req: HttpRequest, query_params: Query<BouysRequest>, db: Data<Pool>) -> Result<HttpResponse, AWError> {
     let bouy_params = vec![
         req.match_info().query("bouy_id").parse().unwrap(),
-        queryParams.direction.clone().unwrap_or(String::from("")),
-        queryParams.height.clone().unwrap_or(String::from("")),
-        queryParams.period.clone().unwrap_or(String::from(""))
+        query_params.direction.clone().unwrap_or(String::from("")),
+        query_params.height.clone().unwrap_or(String::from("")),
+        query_params.period.clone().unwrap_or(String::from("")),
+        query_params.key.clone().unwrap_or(String::from("0"))
     ];
 
     let bouys_result = db::execute(&db, Queries::GetBouyReadings, bouy_params).await?;
 
     return Ok(HttpResponse::Ok()
+        .insert_header(CacheControl(vec![CacheDirective::MaxAge(600u32)]))
         .insert_header(ContentType::json())
-        .body(String::from(bouys_result.get(0).unwrap())));    
+        .body(String::from(bouys_result.get(0).unwrap())));
 }
 
 #[actix_web::main]

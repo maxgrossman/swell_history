@@ -1,55 +1,53 @@
 <html>
     <head>
         <link rel="stylesheet" href="assets/leaflet.css"/>
-        <script src="assets/leaflet.min.js"></script>
+        <script src="assets/leaflet.js"></script>
+        <script src="assets/tilebelt.min.js"></script>
         <style>
             #map { width: 500px; height: 500px }
         </style>
     </head>
     <script>
-        var API = 'http://localhost:8008', map, tileLayer, bouysLayer, bouysIndex = {};
+        var API = 'http://localhost:8008', map, tileLayer, bouysLayer, bouyTilesIndex = {};
+        var bouysIndex =  {}
 
-        function getTiles(leafletBounds, zoom) {
-            const tiles = [],
-                  min = map.project(leafletBounds.getNorthWest(), zoom).divideBy(256).floor(),
-                  max = map.project(leafletBounds.getNorthEast(), zoom).divideBy(256).floor(),
-                  mod = Math.pow(2, zoom);
-
-            for (var i = min.x; i <= max.x; i++) {
-                for (var j = min.y; j <= max.y; j++) {
-                    var pnt = L.point(
-                        (i % mod + mod) % mod,
-                        (j % mod + mod) % mod
-                    );
-
-                    tiles.push([zoom, (i % mod + mod) % mod, (j % mod + mod) % mod])
-
-                }
+        function seenTileOrParent({x,y,z}) {
+            // true if we've already recorded the tile in the tile index.
+            if (bouyTilesIndex.hasOwnProperty(`${z}.${x}.${y}`)) {
+                return true;
             }
 
-            return tiles;
+            let tile = [x,y,z]
+            while (tile[2] !== 0) {
+                tile = getParent(tile);
+                // also true if a parent tile has been recorded since a parent will include bouys of its children.
+                if (bouyTilesIndex.hasOwnProperty(`${tile[2]}.${tile[1]}.${tile[0]}`)) {
+                    return true;
+                }
+
+            }
+            // not yet seen.
+            return false
         }
 
-        function getBouys(tiles = []) {
-            Promise.all(tiles.map(t => {
-                let url = `${API}/bouys/${t.join('/')}.json`
-                return fetch(url).then(r => r.json())
-            })).then(tiles => {
-                tiles.forEach(bouys => {
-                    bouys.forEach(bouy => {
-                        if (!bouysIndex.hasOwnProperty(bouy.id)) {
-                            bouysIndex[bouy.properties.id] = true
-                            bouysLayer.addData(bouy)
-                        }
-                    })
-                })
+        function getBouyTile(leafletTilePoint) {
+            if (seenTileOrParent(leafletTilePoint)) {
+                return;
+            }
+
+            let {z,x,y} = leafletTilePoint;
+
+            let url = `${API}/bouys/${z}/${x}/${y}.json`;
+            return fetch(url).then(r => r.json()).then(bouys => {
+                bouyTilesIndex[`${z}.${x}.${y}`] = true;
+                bouys.forEach(bouy => bouysLayer.addData(bouy))
             })
         }
 
 
         window.onload = () => {
             var geojsonMarkerOptions = {
-                radius: 1,
+                radius: 3,
                 fillColor: "#ff7800",
                 color: "#000",
                 weight: 1,
@@ -61,14 +59,18 @@
             tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             });
-            bouysLayer = L.geoJSON({'type': 'FeatureCollection', features: []}, {    
+            bouysLayer = L.geoJSON({'type': 'FeatureCollection', features: []}, {
                 pointToLayer: function (feature, latlng) {
                     return L.circleMarker(latlng, geojsonMarkerOptions);
                 }
             });
 
-            tileLayer.on('load', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
-            map.on('zoomend', () => getBouys(getTiles(map.getBounds(), map.getZoom())))
+            tileLayer.on('tileloadstart', ({coords}) => getBouyTile(coords));
+            bouysLayer.on('click', clickEvent => {
+                let bouy_id = 46222 //clickEvent.layer.feature.properties.id;
+                let url = `${API}/bouys/${bouy_id}.json`
+                fetch(url).then(r => r.json()).then(console.log)
+            })
 
             bouysLayer.addTo(map)
             tileLayer.addTo(map);

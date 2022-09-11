@@ -15,7 +15,7 @@ const SIGNATURE_LOOKUP: [char;3] = ['d','h','P'];
 fn get_bouy_readings (conn: Connection, params: Vec<String>) -> BouyDbStatementAgg {
     let mut filtered_timestamps = format!(
         "
-        select reading_time, d , h / 100.0 as h, p / 100.0 as p 
+        select reading_time, d , h / 100.0 as h, p / 100.0 as p
         from timestamps_{bouy_id}
         ",
         bouy_id = params.get(0).unwrap()
@@ -24,7 +24,7 @@ fn get_bouy_readings (conn: Connection, params: Vec<String>) -> BouyDbStatementA
 
     let mut filter_clause = String::from("WHERE");
 
-    for i in 1..params.len() {
+    for i in 1..params.len() - 1 {
         let param = params.get(i).unwrap();
         if !param.is_empty() {
             let bounds: Vec<&str> = param.split(",").collect();
@@ -40,17 +40,18 @@ fn get_bouy_readings (conn: Connection, params: Vec<String>) -> BouyDbStatementA
         filtered_timestamps.push_str(&filter_clause.as_str());
     }
 
-    filtered_timestamps.push_str(format!("\nLIMIT {LIMIT}\nOFFSET {OFFSET}", LIMIT=10, OFFSET=0).as_str());
+    let offset: usize = params.last().unwrap().to_string().parse::<usize>().unwrap();
+    filtered_timestamps.push_str(format!("\nLIMIT {LIMIT}\nOFFSET {OFFSET}", LIMIT=10, OFFSET=offset).as_str());
 
     let query = format!(
         "
         with fitered_timestamps as ({filtered_timestamps})
-        SELECT json_group_array( 
+        SELECT json_group_array(
             json_object(
                 'reading_time', reading_time,
-                'direction', d, 
+                'direction', d,
                 'period', p,
-                'height', h 
+                'height', h
             )
         )
         FROM fitered_timestamps;
@@ -58,14 +59,13 @@ fn get_bouy_readings (conn: Connection, params: Vec<String>) -> BouyDbStatementA
         filtered_timestamps = filtered_timestamps
     );
 
-    return conn.prepare(query.as_str()).unwrap().query_map([], |row| { 
-        Ok(row.get(0)?) 
+    return conn.prepare(query.as_str()).unwrap().query_map([], |row| {
+        Ok(row.get(0)?)
     })
     .and_then(Iterator::collect);
 }
 
 fn get_tiles (conn: Connection, params: Vec<String>) -> BouyDbStatementAgg {
-
     let mut stmt = conn.prepare(format!(
         "
             SELECT json_group_array(
@@ -81,8 +81,8 @@ fn get_tiles (conn: Connection, params: Vec<String>) -> BouyDbStatementAgg {
         z = params.get(0).unwrap(), x = params.get(1).unwrap(), y = params.get(2).unwrap()
     ).as_str()).unwrap();
 
-    return stmt.query_map([], |row| { 
-        Ok(row.get(0)?) 
+    return stmt.query_map([], |row| {
+        Ok(row.get(0)?)
     })
     .and_then(Iterator::collect);
 }

@@ -13,7 +13,9 @@ node_modules
 **/*combined-shapefile*
 **/*timezones.s*
 fixture/build_bouy_metadata/bouy_history_files.html
+swell_history_web/static/assets/*
 .vagrant
 /roles
 
 **/*:Zone.Identifier
+

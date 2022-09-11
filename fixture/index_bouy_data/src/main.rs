@@ -79,7 +79,6 @@ fn main() -> () {
             CREATE INDEX indx_h_{bouy_id} on timestamps_{bouy_id}(h);
             CREATE INDEX indx_p_{bouy_id} on timestamps_{bouy_id}(p);
             COMMIT;
-            COMMIT;
         ").as_str()).unwrap();
 
         println!("Indexing {}", bouy_id);

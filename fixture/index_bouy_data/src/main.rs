@@ -70,13 +70,13 @@ fn main() -> () {
                                     h   bigint,
                                     p   bigint);
 
-            CREATE INDEX indx_dhp on timestamps_{bouy_id}(dhp);
-            CREATE INDEX indx_dh on timestamps_{bouy_id}(dh);
-            CREATE INDEX indx_dp on timestamps_{bouy_id}(dp);
-            CREATE INDEX indx_hp on timestamps_{bouy_id}(hp);
-            CREATE INDEX indx_d on timestamps_{bouy_id}(d);
-            CREATE INDEX indx_h on timestamps_{bouy_id}(h);
-            CREATE INDEX indx_p on timestamps_{bouy_id}(p);
+            CREATE INDEX indx_dhp_{bouy_id} on timestamps_{bouy_id}(dhp);
+            CREATE INDEX indx_dh_{bouy_id} on timestamps_{bouy_id}(dh);
+            CREATE INDEX indx_dp_{bouy_id} on timestamps_{bouy_id}(dp);
+            CREATE INDEX indx_hp_{bouy_id} on timestamps_{bouy_id}(hp);
+            CREATE INDEX indx_d_{bouy_id} on timestamps_{bouy_id}(d);
+            CREATE INDEX indx_h_{bouy_id} on timestamps_{bouy_id}(h);
+            CREATE INDEX indx_p_{bouy_id} on timestamps_{bouy_id}(p);
             COMMIT;
         ", bouy_id=bouy_id).as_str()).unwrap();
 

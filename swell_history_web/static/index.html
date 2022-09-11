@@ -67,7 +67,7 @@
 
             tileLayer.on('tileloadstart', ({coords}) => getBouyTile(coords));
             bouysLayer.on('click', clickEvent => {
-                let bouy_id = 46222 //clickEvent.layer.feature.properties.id;
+                let bouy_id = clickEvent.layer.feature.properties.id;
                 let url = `${API}/bouys/${bouy_id}.json`
                 fetch(url).then(r => r.json()).then(console.log)
             })

@@ -1,9 +1,9 @@
 use std::env::args;
 use std::f64::consts::{PI,E};
 use serde_json::{Value};
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Connection};
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{BufRead, BufReader};
 use regex::Regex;
 
 // built referencing https://github.com/mapbox/tilebelt pointToTile
@@ -23,15 +23,15 @@ fn main() {
     let bouys_db: String = args_vec.pop().unwrap();
     let bouys_history_file_path: String = args_vec.pop().unwrap();
     let timezones_db: String = args_vec.pop().unwrap();
-    let mut connection = Connection::open(bouys_db).unwrap();
+    let connection = Connection::open(bouys_db).unwrap();
     let client = reqwest::blocking::Client::builder().build().unwrap();
     let resp = client.get("https://www.ndbc.noaa.gov/ndbcmapstations.json").send().unwrap();
     let bouys_json: Value = serde_json::from_str(resp.text().unwrap().as_str()).unwrap();
     let bouy_name_regex = Regex::new(r"(h19|h20)").unwrap();
     unsafe {
-        connection.load_extension_enable();
-        let r = connection.load_extension("mod_spatialite", None);
-        connection.execute(format!("ATTACH \"{db}\" AS tzdb;",db=timezones_db).as_str(), NO_PARAMS).unwrap();
+        connection.load_extension_enable().unwrap();
+        connection.load_extension("mod_spatialite", None).unwrap();
+        connection.execute(format!("ATTACH \"{db}\" AS tzdb;",db=timezones_db).as_str(), ()).unwrap();
         let mut bouys_statement = String::from(
             "
             BEGIN TRANSACTION;
@@ -52,6 +52,24 @@ fn main() {
                 "\nINSERT INTO bouys values ('{bouy_id}', '', GeomFromText('POINT({lon} {lat})', 4326));",
                 bouy_id=bouy_id, lon=lon, lat=lat
             ).as_str());
+
+            bouys_statement.push_str(format!("
+                CREATE TABLE timestamps_{bouy_id} (reading_time timestamp primary key,
+                                        dhp bigint,
+                                        dh  bigint,
+                                        dp  bigint,
+                                        hp  bigint,
+                                        d   bigint,
+                                        h   bigint,
+                                        p   bigint);
+                CREATE INDEX indx_dhp_{bouy_id} on timestamps_{bouy_id}(dhp);
+                CREATE INDEX indx_dh_{bouy_id} on timestamps_{bouy_id}(dh);
+                CREATE INDEX indx_dp_{bouy_id} on timestamps_{bouy_id}(dp);
+                CREATE INDEX indx_hp_{bouy_id} on timestamps_{bouy_id}(hp);
+                CREATE INDEX indx_d_{bouy_id} on timestamps_{bouy_id}(d);
+                CREATE INDEX indx_h_{bouy_id} on timestamps_{bouy_id}(h);
+                CREATE INDEX indx_p_{bouy_id} on timestamps_{bouy_id}(p);
+            ", bouy_id=bouy_id).as_str());
 
             for zoom in 0..21 {
                 let tile_x_y: [u64;2] = point_to_tile_x_y(lon, lat, zoom);
@@ -91,7 +109,7 @@ fn main() {
             "
         ).unwrap();
 
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let mut rows = stmt.query(()).unwrap();
         let mut tzid_insert_stmt = String::from("BEGIN TRANSACTION;\n");
 
         while let Some(res_row) = rows.next().unwrap() {
@@ -103,6 +121,6 @@ fn main() {
 
         tzid_insert_stmt.push_str("COMMIT;");
         connection.execute_batch(tzid_insert_stmt.as_str()).unwrap();
-        connection.load_extension_disable();
+        connection.load_extension_disable().unwrap();
     }
 }

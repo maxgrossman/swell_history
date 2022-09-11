@@ -60,26 +60,6 @@ fn main() -> () {
         let bouy_id: String = res_row.get(0).unwrap();
         let tzid: String = res_row.get(1).unwrap();
         let history_files: String = res_row.get(2).unwrap();
-        connection.execute_batch(format!("
-            BEGIN;
-            CREATE TABLE timestamps_{bouy_id} (reading_time timestamp primary key,
-                                    dhp bigint,
-                                    dh  bigint,
-                                    dp  bigint,
-                                    hp  bigint,
-                                    d   bigint,
-                                    h   bigint,
-                                    p   bigint);
-
-            CREATE INDEX indx_dhp_{bouy_id} on timestamps_{bouy_id}(dhp);
-            CREATE INDEX indx_dh_{bouy_id} on timestamps_{bouy_id}(dh);
-            CREATE INDEX indx_dp_{bouy_id} on timestamps_{bouy_id}(dp);
-            CREATE INDEX indx_hp_{bouy_id} on timestamps_{bouy_id}(hp);
-            CREATE INDEX indx_d_{bouy_id} on timestamps_{bouy_id}(d);
-            CREATE INDEX indx_h_{bouy_id} on timestamps_{bouy_id}(h);
-            CREATE INDEX indx_p_{bouy_id} on timestamps_{bouy_id}(p);
-            COMMIT;
-        ").as_str()).unwrap();
 
         println!("Indexing {}", bouy_id);
 
@@ -109,12 +89,12 @@ fn main() -> () {
                     have_min = indexes.contains_key("mm");
                 } else if i > 1 {
                     let data: Vec<&str> = line.split_whitespace().collect();
-                    
+
                     let swell_direction = match data[*indexes.get("MWD").unwrap()].parse::<f32>() {
                         Ok(mwd) => mwd,
-                        Err(_) => 361.0f32 
+                        Err(_) => 361.0f32
                     };
-                    
+
                     if swell_direction < 0.0 || 360.00 < swell_direction {
                         continue
                     }
@@ -176,11 +156,11 @@ fn main() -> () {
             connection.execute_batch(bouy_statement.as_str()).unwrap();
         }
     }
-    File::create(format!("{}/{}", 
+    File::create(format!("{}/{}",
             home_dir().unwrap()
                 .into_os_string()
                 .into_string().unwrap()
-                .as_str(), 
+                .as_str(),
             "created_bouys"
         ))
         .unwrap().write_all(b".").unwrap()

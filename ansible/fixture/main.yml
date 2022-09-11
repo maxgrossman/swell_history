@@ -13,6 +13,7 @@
     source_dir: ~/bouy_bouy_metadata
     build_bouy_metadata_dir: '{{ source_dir }}/fixture/build_bouy_metadata'
     index_bouy_data_dir: '{{ source_dir }}/fixture/index_bouy_data'
+    swell_history_version: 'main'
   tasks:
     # TODO: see, can i using a forwarded agent clone this repo on other box?
     - name: checkout fixture src

@@ -46,7 +46,7 @@ fn main() -> () {
         "
     ).unwrap();
 
-    let mut rows = stmt.query(NO_PARAMS).unwrap();
+    let mut rows = stmt.query(()).unwrap();
 
     let history_base_url = "https://www.ndbc.noaa.gov/data/historical/stdmet";
 
@@ -59,8 +59,7 @@ fn main() -> () {
         let bouy_id: String = res_row.get(0).unwrap();
         let tzid: String = res_row.get(1).unwrap();
         let history_files: String = res_row.get(2).unwrap();
-
-        bouy_db_connection.execute_batch(format("
+        connection.execute_batch(format!("
             BEGIN;
             CREATE TABLE timestamps_{bouy_id} (reading_time timestamp primary key,
                                     dhp bigint,
@@ -79,7 +78,7 @@ fn main() -> () {
             CREATE INDEX indx_h on timestamps(h);
             CREATE INDEX indx_p on timestamps(p);
             COMMIT;
-        ", bouy_id = bouy_id).as_str()).unwrap();
+        ", bouy_id=bouy_id).as_str()).unwrap();
 
         println!("Indexing {}", bouy_id);
 
@@ -168,7 +167,7 @@ fn main() -> () {
                 };
             }
             bouy_statement.push_str("\nCOMMIT;");
-            bouy_db_connection.execute_batch(bouy_statement.as_str()).unwrap();
+            connection.execute_batch(bouy_statement.as_str()).unwrap();
         }
     }
     File::create("~/created_bouys").unwrap().write_all(b".").unwrap();

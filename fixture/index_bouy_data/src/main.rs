@@ -1,6 +1,7 @@
 use chrono::TimeZone;
 use chrono::offset::LocalResult;
 use chrono_tz::{Tz,UTC};
+use dirs::{home_dir};
 use flate2::read::GzDecoder;
 use std::env;
 use std::fs::File;
@@ -78,7 +79,8 @@ fn main() -> () {
             CREATE INDEX indx_h_{bouy_id} on timestamps_{bouy_id}(h);
             CREATE INDEX indx_p_{bouy_id} on timestamps_{bouy_id}(p);
             COMMIT;
-        ", bouy_id=bouy_id).as_str()).unwrap();
+            COMMIT;
+        ").as_str()).unwrap();
 
         println!("Indexing {}", bouy_id);
 
@@ -108,7 +110,12 @@ fn main() -> () {
                     have_min = indexes.contains_key("mm");
                 } else if i > 1 {
                     let data: Vec<&str> = line.split_whitespace().collect();
-                    let swell_direction = data[*indexes.get("MWD").unwrap()].parse::<f32>().unwrap();
+                    
+                    let swell_direction = match data[*indexes.get("MWD").unwrap()].parse::<f32>() {
+                        Ok(mwd) => mwd,
+                        Err(_) => 361.0f32 
+                    };
+                    
                     if swell_direction < 0.0 || 360.00 < swell_direction {
                         continue
                     }
@@ -170,6 +177,13 @@ fn main() -> () {
             connection.execute_batch(bouy_statement.as_str()).unwrap();
         }
     }
-    File::create("~/created_bouys").unwrap().write_all(b".").unwrap();
+    File::create(format!("{}/{}", 
+            home_dir().unwrap()
+                .into_os_string()
+                .into_string().unwrap()
+                .as_str(), 
+            "created_bouys"
+        ))
+        .unwrap().write_all(b".").unwrap()
 }
 

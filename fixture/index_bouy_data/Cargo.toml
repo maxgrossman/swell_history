@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 chrono          = { version = "0.4" }
 chrono-tz       = { version = "0.4" }
+dirs            = { version = "4.0" }
 reqwest         = { version = "0.11.11", features = ["blocking", "gzip", "stream"] }
 flate2          = { version = "1.0.24" }
 rusqlite        = { version = "0.28.0", features = ["load_extension"] }
